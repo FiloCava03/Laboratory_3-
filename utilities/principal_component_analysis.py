@@ -9,11 +9,8 @@ def principal_component_analysis(
     Given a matrix, returns the eigenvalues vector and the eigenvectors matrix.
     """
 
-<<<<<<< HEAD
-    eigenvalues, eigenvectors = None  # !!! COMPLETE AS APPROPRIATE !!!
-=======
+
     eigenvalues, eigenvectors = np.linalg.eig(matrix)  # !!! COMPLETE AS APPROPRIATE !!!
->>>>>>> 95b18fb (PCA utilitie)
     # Sorting from greatest to lowest the eigenvalues and the eigenvectors
     sort_indices = eigenvalues.argsort()[::-1]
 
