@@ -32,7 +32,7 @@ def constant_corr_shrinkage(
 
     # Extract standard deviations
     variances = np.diag(S)
-    std_devs = variances
+    std_devs = np.sqrt(variances)
 
     # Compute correlation matrix from covariance matrix
     std_outer = np.outer(std_devs, std_devs)
