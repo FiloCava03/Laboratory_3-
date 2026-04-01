@@ -71,7 +71,7 @@ def constant_corr_shrinkage(
     for t in range(T):
         y_t = centered_returns[t, :]
         outer_prod = np.outer(y_t, y_t)
-        diff = outer_prod + S  
+        diff = outer_prod - S    # changed
 
         # Pi-hat calculation
         pi_hat += np.sum(diff**2)
@@ -92,7 +92,7 @@ def constant_corr_shrinkage(
 
         # Calculate contribution to rho-hat (off-diagonal only)
         off_diag_contrib = (
-            2
+            1/2                 # changed
             * avg_corr
             * (sqrt_ratio_matrix.T * theta_ii_ij + sqrt_ratio_matrix * theta_jj_ij)
         )
@@ -116,13 +116,13 @@ def constant_corr_shrinkage(
         intensity = 0.0
     else:
         # Ensure shrinkage intensity is between 0 and 1
-        intensity = max(0.0, min(1.0, numerator / denominator))
+        intensity = max(0.0, min(1.0, numerator / (T * denominator))) # corrected
 
     return {
         "target": target,
         "intensity": intensity,
         "sample_cov": cov_matrix,
-        "shrunk_cov": intensity * cov_matrix + (1 - intensity) * target  # corrected
+        "shrunk_cov": intensity * target + (1 - intensity) * cov_matrix  # corrected
     }
 
 
@@ -205,10 +205,10 @@ def market_factor_shrinkage(
     for t in range(T):
         y_t = centered_returns[t, :]
         outer_prod = np.outer(y_t, y_t)
-        diff = outer_prod + S  
+        diff = outer_prod - S       # changed
 
         # Pi-hat calculation
-        pi_hat = np.sum(diff**2) 
+        pi_hat += np.sum(diff**2)   # changed
 
         # Rho-hat calculation
         m_t = market_centered_returns[t]
@@ -232,6 +232,7 @@ def market_factor_shrinkage(
         rho_hat += np.sum(off_diag_term)
 
     rho_hat /= T
+    pi_hat /= T         # added
 
     # Calculate gamma-hat: ||F - S||^2 where F is the target matrix
     gamma_hat = np.sum((target_np - S) ** 2)
@@ -250,5 +251,5 @@ def market_factor_shrinkage(
         "target": target,
         "intensity": intensity,
         "sample_cov": cov_matrix,
-        "shrunk_cov": intensity * cov_matrix + (1 - intensity) * target,
+        "shrunk_cov": intensity * target + (1 - intensity) * cov_matrix     # corrected
     }
