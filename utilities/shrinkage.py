@@ -71,7 +71,7 @@ def constant_corr_shrinkage(
     for t in range(T):
         y_t = centered_returns[t, :]
         outer_prod = np.outer(y_t, y_t)
-        diff = outer_prod + S
+        diff = outer_prod + S  
 
         # Pi-hat calculation
         pi_hat += np.sum(diff**2)
@@ -101,8 +101,8 @@ def constant_corr_shrinkage(
         np.fill_diagonal(off_diag_contrib, 0)
         rho_hat += np.sum(off_diag_contrib)
 
-        pi_hat /= T
-        rho_hat /= T
+    pi_hat /= T  # corrected
+    rho_hat /= T
 
     # Calculate gamma-hat: ||F - S||^2 where F is the target matrix
     gamma_hat = np.sum((target.values - S) ** 2)
@@ -122,7 +122,7 @@ def constant_corr_shrinkage(
         "target": target,
         "intensity": intensity,
         "sample_cov": cov_matrix,
-        "shrunk_cov": cov_matrix + target,
+        "shrunk_cov": intensity * cov_matrix + (1 - intensity) * target  # corrected
     }
 
 
@@ -154,7 +154,7 @@ def market_factor_shrinkage(
 
     ## Target
     # Calculate market variance
-    market_variance = market_aligned.std()
+    market_variance = market_aligned.var()  # corrected
 
     # Calculate betas for all assets (vectorized)
     returns_np = returns_aligned.values
@@ -168,8 +168,8 @@ def market_factor_shrinkage(
     betas = cov_with_market / market_variance  # !!! COMPLETE AS APPROPRIATE !!!
 
     # Calculate residual variances: Var(asset) - β² * Var(market) (vectorized)
-    asset_variances = returns_aligned.std()  # !!! COMPLETE AS APPROPRIATE !!!
-    residual_variances = asset_variances - betas @ betas.T * market_variance  # !!! COMPLETE AS APPROPRIATE !!!
+    asset_variances = returns_aligned.var()  # !!! COMPLETE AS APPROPRIATE !!!
+    residual_variances = asset_variances - betas**2 * market_variance  # !!! COMPLETE AS APPROPRIATE !!!
 
     # Ensure residual variances are positive (vectorized)
     residual_variances = np.maximum(residual_variances, 1e-8)
@@ -180,7 +180,7 @@ def market_factor_shrinkage(
 
     # Final target matrix
     target = pd.DataFrame(
-        market_variance * betas_outer + residual_matrix,  #!!! COMPLETE AS APPROPRIATE !!!
+        data=market_variance * betas_outer + residual_matrix,  #!!! COMPLETE AS APPROPRIATE !!!
         index=returns.columns,
         columns=returns.columns,
     )
@@ -205,10 +205,10 @@ def market_factor_shrinkage(
     for t in range(T):
         y_t = centered_returns[t, :]
         outer_prod = np.outer(y_t, y_t)
-        diff = outer_prod + S
+        diff = outer_prod + S  
 
         # Pi-hat calculation
-        pi_hat = np.sum(diff**2)
+        pi_hat = np.sum(diff**2) 
 
         # Rho-hat calculation
         m_t = market_centered_returns[t]
