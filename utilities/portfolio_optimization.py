@@ -41,8 +41,8 @@ def minimum_variance_portfolio(cov_matrix: np.ndarray) -> np.ndarray:
     ones_vec = np.ones((n, 1))
     one_vec_trans = np.ones((1,n))
 
-    min_var_ptf_numerator = (cov_matrix @ ones_vec)  # !!! COMPLETE AS APPROPRIATE !!!
-    min_var_ptf_den = one_vec_trans @ cov_matrix @ ones_vec  # !!! COMPLETE AS APPROPRIATE !!!
+    min_var_ptf_numerator = (np.linalg.inv(cov_matrix) @ ones_vec)  # !!! COMPLETE AS APPROPRIATE !!!
+    min_var_ptf_den = one_vec_trans @ np.linalg.inv(cov_matrix) @ ones_vec  # !!! COMPLETE AS APPROPRIATE !!!
     min_var_ptf_weights = min_var_ptf_numerator / min_var_ptf_den
 
     return min_var_ptf_weights.flatten()
@@ -106,6 +106,8 @@ def mean_variance_portfolio(
     n = cov_matrix.shape[0]
     ones_vec = np.ones((n, 1))
     one_vec_trans = np.ones((1,n))
+
+    expected_returns=expected_returns.reshape(-1,1)
 
     A = one_vec_trans @ np.linalg.inv(cov_matrix) @ ones_vec
     B = one_vec_trans @ np.linalg.inv(cov_matrix) @ expected_returns
