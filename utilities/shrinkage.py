@@ -37,13 +37,14 @@ def constant_corr_shrinkage(
     # Compute correlation matrix from covariance matrix
     std_outer = np.outer(std_devs, std_devs)
     corr_matrix = S / std_outer
+    n = corr_matrix.shape[0]
 
     # Calculate average correlation
-    avg_corr = None  # !!! COMPLETE AS APPROPRIATE !!!
+    avg_corr = 1/(n*(n-1))*(corr_matrix.sum()-n)
 
     ## Target
     # Calculate target matrix (constant correlation)
-    constant_corr_cov = None  # !!! COMPLETE AS APPROPRIATE !!!
+    constant_corr_cov = avg_corr * std_outer  # !!! COMPLETE AS APPROPRIATE !!!
 
     # Set diagonal elements to original variances
     np.fill_diagonal(constant_corr_cov, variances)
@@ -164,11 +165,11 @@ def market_factor_shrinkage(
     combined = np.column_stack([returns_np, market_np])
     cov_matrix_full = np.cov(combined.T)
     cov_with_market = cov_matrix_full[:-1, -1]  # Covariances of each asset with market
-    betas = None  # !!! COMPLETE AS APPROPRIATE !!!
+    betas = cov_with_market / market_variance  # !!! COMPLETE AS APPROPRIATE !!!
 
     # Calculate residual variances: Var(asset) - β² * Var(market) (vectorized)
-    asset_variances = None  # !!! COMPLETE AS APPROPRIATE !!!
-    residual_variances = None  # !!! COMPLETE AS APPROPRIATE !!!
+    asset_variances = returns_aligned.std()  # !!! COMPLETE AS APPROPRIATE !!!
+    residual_variances = asset_variances - betas @ betas.T * market_variance  # !!! COMPLETE AS APPROPRIATE !!!
 
     # Ensure residual variances are positive (vectorized)
     residual_variances = np.maximum(residual_variances, 1e-8)
@@ -179,7 +180,7 @@ def market_factor_shrinkage(
 
     # Final target matrix
     target = pd.DataFrame(
-        None,  #!!! COMPLETE AS APPROPRIATE !!!
+        market_variance * betas_outer + residual_matrix,  #!!! COMPLETE AS APPROPRIATE !!!
         index=returns.columns,
         columns=returns.columns,
     )
