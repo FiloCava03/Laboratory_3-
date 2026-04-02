@@ -44,7 +44,7 @@ def constant_corr_shrinkage(
 
     ## Target
     # Calculate target matrix (constant correlation)
-    constant_corr_cov = avg_corr * std_outer  # !!! COMPLETE AS APPROPRIATE !!!
+    constant_corr_cov = avg_corr * std_outer 
 
     # Set diagonal elements to original variances
     np.fill_diagonal(constant_corr_cov, variances)
@@ -67,39 +67,70 @@ def constant_corr_shrinkage(
     rho_hat = 0.0
     diag_S_matrix = np.outer(variances, np.ones(N))  # S[i,i] for all i,j
     diag_S_matrix_T = diag_S_matrix.T  # S[j,j] for all i,j
-    # TODO: Further vectorization possible?
-    for t in range(T):
-        y_t = centered_returns[t, :]
-        outer_prod = np.outer(y_t, y_t)
-        diff = outer_prod - S    # changed
+    
+    # -----------------------------------------------------------------------------
+    # Further vectorization possible?
+    # for t in range(T):
+    #     y_t = centered_returns[t, :]
+    #     outer_prod = np.outer(y_t, y_t)
+    #     diff = outer_prod - S    # changed
 
-        # Pi-hat calculation
-        pi_hat += np.sum(diff**2)
+    #     # Pi-hat calculation
+    #     pi_hat += np.sum(diff**2)
 
-        # Rho-hat calculation
-        # Diagonal terms: (y_t[i]**2 - S[i,i])**2
-        diag_terms = y_t**2 - variances
-        rho_hat += np.sum(diag_terms**2)
+    #     # Rho-hat calculation
+    #     # Diagonal terms: (y_t[i]**2 - S[i,i])**2
+    #     diag_terms = y_t**2 - variances
+    #     rho_hat += np.sum(diag_terms**2)
 
-        # Off-diagonal terms
-        # Create matrices for vectorized computation
-        y_squared_matrix = np.outer(y_t**2, np.ones(N))  # y_t[i]**2 for all i,j
-        y_squared_matrix_T = y_squared_matrix.T  # y_t[j]**2 for all i,j
+    #     # Off-diagonal terms
+    #     # Create matrices for vectorized computation
+    #     y_squared_matrix = np.outer(y_t**2, np.ones(N))  # y_t[i]**2 for all i,j
+    #     y_squared_matrix_T = y_squared_matrix.T  # y_t[j]**2 for all i,j
 
-        # Calculate theta terms vectorized
-        theta_ii_ij = (y_squared_matrix - diag_S_matrix) * (outer_prod - S)
-        theta_jj_ij = (y_squared_matrix_T - diag_S_matrix_T) * (outer_prod - S)
+    #     # Calculate theta terms vectorized
+    #     theta_ii_ij = (y_squared_matrix - diag_S_matrix) * (outer_prod - S)
+    #     theta_jj_ij = (y_squared_matrix_T - diag_S_matrix_T) * (outer_prod - S)
 
-        # Calculate contribution to rho-hat (off-diagonal only)
-        off_diag_contrib = (
-            1/2                 # changed
-            * avg_corr
-            * (sqrt_ratio_matrix.T * theta_ii_ij + sqrt_ratio_matrix * theta_jj_ij)
-        )
+    #     # Calculate contribution to rho-hat (off-diagonal only)
+    #     off_diag_contrib = (
+    #         1/2                 # changed
+    #         * avg_corr
+    #         * (sqrt_ratio_matrix.T * theta_ii_ij + sqrt_ratio_matrix * theta_jj_ij)
+    #     )
 
-        # Sum only off-diagonal elements
-        np.fill_diagonal(off_diag_contrib, 0)
-        rho_hat += np.sum(off_diag_contrib)
+    #     # Sum only off-diagonal elements
+    #     np.fill_diagonal(off_diag_contrib, 0)
+    #     rho_hat += np.sum(off_diag_contrib)
+    # -----------------------------------------------------------------------------------
+
+    outer_all = np.einsum("ti,tj->tij", centered_returns, centered_returns)
+    diff_all = outer_all - S
+
+    # Pi-hat calculation
+    pi_hat = np.sum(diff_all**2)
+
+    # Rho-hat diagonal terms
+    y_squared = centered_returns**2
+    diag_terms = y_squared - variances
+    rho_hat = np.sum(diag_terms**2)
+
+    # Rho-hat off-diagonal terms
+    y_squared_matrix = y_squared[:, :, None]
+    y_squared_matrix_T = y_squared[:, None, :]
+
+    theta_ii_ij = (y_squared_matrix - diag_S_matrix) * diff_all
+    theta_jj_ij = (y_squared_matrix_T - diag_S_matrix_T) * diff_all
+
+    off_diag_contrib = (
+        0.5
+        * avg_corr
+        * (sqrt_ratio_matrix.T[None, :, :] * theta_ii_ij + sqrt_ratio_matrix[None, :, :] * theta_jj_ij)
+    )
+    diag_idx = np.arange(N)
+    off_diag_contrib[:, diag_idx, diag_idx] = 0
+    rho_hat += np.sum(off_diag_contrib)
+
 
     pi_hat /= T  # corrected
     rho_hat /= T
@@ -165,11 +196,11 @@ def market_factor_shrinkage(
     combined = np.column_stack([returns_np, market_np])
     cov_matrix_full = np.cov(combined.T)
     cov_with_market = cov_matrix_full[:-1, -1]  # Covariances of each asset with market
-    betas = cov_with_market / market_variance  # !!! COMPLETE AS APPROPRIATE !!!
+    betas = cov_with_market / market_variance  
 
     # Calculate residual variances: Var(asset) - β² * Var(market) (vectorized)
-    asset_variances = returns_aligned.var()  # !!! COMPLETE AS APPROPRIATE !!!
-    residual_variances = asset_variances - betas**2 * market_variance  # !!! COMPLETE AS APPROPRIATE !!!
+    asset_variances = returns_aligned.var()  
+    residual_variances = asset_variances - betas**2 * market_variance  
 
     # Ensure residual variances are positive (vectorized)
     residual_variances = np.maximum(residual_variances, 1e-8)
@@ -180,7 +211,7 @@ def market_factor_shrinkage(
 
     # Final target matrix
     target = pd.DataFrame(
-        data=market_variance * betas_outer + residual_matrix,  #!!! COMPLETE AS APPROPRIATE !!!
+        data=market_variance * betas_outer + residual_matrix, 
         index=returns.columns,
         columns=returns.columns,
     )
@@ -199,37 +230,64 @@ def market_factor_shrinkage(
     variances = np.diag(S)
     target_np = target.values
 
-    pi_hat = 0.0
-    rho_hat = 0.0
+    # ----------------------------------------------------------
+    # pi_hat = 0.0
+    # rho_hat = 0.0
+    # for t in range(T):
+    #     y_t = centered_returns[t, :]
+    #     outer_prod = np.outer(y_t, y_t)
+    #     diff = outer_prod - S       # changed
 
-    for t in range(T):
-        y_t = centered_returns[t, :]
-        outer_prod = np.outer(y_t, y_t)
-        diff = outer_prod - S       # changed
+    #     # Pi-hat calculation
+    #     pi_hat += np.sum(diff**2)   # changed
 
-        # Pi-hat calculation
-        pi_hat += np.sum(diff**2)   # changed
+    #     # Rho-hat calculation
+    #     m_t = market_centered_returns[t]
 
-        # Rho-hat calculation
-        m_t = market_centered_returns[t]
+    #     # Diagonal terms: (y_t[i]**2 - S[i,i])**2
+    #     diag_terms = y_t**2 - variances
+    #     rho_hat += np.sum(diag_terms**2)
 
-        # Diagonal terms: (y_t[i]**2 - S[i,i])**2
-        diag_terms = y_t**2 - variances
-        rho_hat += np.sum(diag_terms**2)
+    #     # Off-diagonal terms
+    #     # Create matrices: betas[j] * y_t[i] for all i,j
+    #     betas_y_matrix = np.outer(y_t, betas)  # y_t[i] * betas[j]
+    #     betas_y_matrix_T = betas_y_matrix.T  # y_t[j] * betas[i]
 
-        # Off-diagonal terms
-        # Create matrices: betas[j] * y_t[i] for all i,j
-        betas_y_matrix = np.outer(y_t, betas)  # y_t[i] * betas[j]
-        betas_y_matrix_T = betas_y_matrix.T  # y_t[j] * betas[i]
+    #     # Calculate the rho-hat contribution for off-diagonal elements
+    #     off_diag_term = (
+    #         betas_y_matrix_T + betas_y_matrix - betas_outer * m_t
+    #     ) * m_t * outer_prod - target_np * S
 
-        # Calculate the rho-hat contribution for off-diagonal elements
-        off_diag_term = (
-            betas_y_matrix_T + betas_y_matrix - betas_outer * m_t
-        ) * m_t * outer_prod - target_np * S
+    #     # Sum only off-diagonal elements
+    #     np.fill_diagonal(off_diag_term, 0)
+    #     rho_hat += np.sum(off_diag_term)
+    # ----------------------------------------------------------------------
 
-        # Sum only off-diagonal elements
-        np.fill_diagonal(off_diag_term, 0)
-        rho_hat += np.sum(off_diag_term)
+
+    outer_all = np.einsum("ti,tj->tij", centered_returns, centered_returns)
+    diff_all = outer_all - S
+
+    # Pi-hat calculation
+    pi_hat = np.sum(diff_all**2)
+
+    # Rho-hat diagonal terms
+    y_squared = centered_returns**2
+    diag_terms = y_squared - variances
+    rho_hat = np.sum(diag_terms**2)
+
+    # Rho-hat off-diagonal terms
+    m_expanded = market_centered_returns[:, None, None]
+    betas_y_matrix = centered_returns[:, :, None] * betas[None, None, :]
+    betas_y_matrix_T = centered_returns[:, None, :] * betas[None, :, None]
+    off_diag_term = (
+        (betas_y_matrix_T + betas_y_matrix - betas_outer[None, :, :] * m_expanded)
+        * m_expanded
+        * outer_all
+        - target_np[None, :, :] * S[None, :, :]
+    )
+    diag_idx = np.arange(S.shape[0])
+    off_diag_term[:, diag_idx, diag_idx] = 0.0
+    rho_hat += np.sum(off_diag_term)
 
     rho_hat /= T
     pi_hat /= T         # added
